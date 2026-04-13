@@ -36,18 +36,22 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     class PowerConsumptionResults(dict):
         type: str
         value: float
+        time: float
     print("Starting power consumption stress test...")
     # Start the interrupt in a separate thread
     consuming_function = threading.Thread(target=sample_interrupt, daemon=True)
     consuming_function.start()
     # Run the stress test for a certain duration (e.g., 15 minutes)
     time_start = time.time()
+    pwr_consumption_results = open(f"{test_name}_power_consumption_results.txt", "w")
     while time.time() - time_start < 900:  # Run for 900 seconds (15 minutes)
         # Here you would add code to measure voltage, current, and power consumption
         # For example, you could read from a sensor or use a library that interfaces with the hardware
         results = subprocess.run(["vcgencmd", "pmic_read_adc", "temp"], capture_output=True, text=True)  # Example command to measure temperature
         print(f"Power consumption measurement: {results.stdout}")
         lines = results.stdout.split("\n")
+        curr_time = time.time()
+        # gather these results so we can plot voltage, current, and power together
         mapped_results : dict[str, list[PowerConsumptionResults]] = {}
         for line in lines:
             elements = line.split("=")
@@ -59,7 +63,8 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
                     mapped_results[key] = []
                 mapped_results[key].append({
                     "type": "current",
-                    "value": value
+                    "value": value,
+                    "time": curr_time
                 })
             elif key.endswith("_V"):
                 key = key[:-2]  # Remove the "_V" suffix
@@ -67,11 +72,14 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
                     mapped_results[key] = []
                 mapped_results[key].append({
                     "type": "voltage",
-                    "value": value
+                    "value": value,
+                    "time": curr_time
                 })
             else:
                 raise ValueError(f"Unexpected key format: {key}")
-        time.sleep(1)  # Sleep for a short duration before the next measurement
+        pwr_consumption_results.write(f"{curr_time}: {mapped_results}\n")
+        time.sleep(10)  # Sleep for 10 seconds before the next measurement
+    pwr_consumption_results.close()
     
     # signal the interrupt thread to stop and wait briefly for it to exit
     exit_event.set()
