@@ -130,8 +130,11 @@ def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
     print("Starting temperature stress test...")
     results = subprocess.run(["stressberry-run", "-n", test_name, "--duration", "900", "-c", "4", "--output", "out.dat"], capture_output=True, text=True)
     print(f"Stress test completed. Output:\n{results.stdout}")
-    
-if __name__ == "__main__":
+
+def run_all_tests():
     install_and_import_python_package("numpy")
     power_consumption_stress_test()
     #temperature_stress_test()
+    
+if __name__ == "__main__":
+    run_all_tests()

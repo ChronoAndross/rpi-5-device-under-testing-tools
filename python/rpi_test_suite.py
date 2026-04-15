@@ -16,11 +16,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # dump UART and obtain firmware info
-    bootloader_info = uart_info_dump(sys.argv[1], True)
+    device = sys.argv[1]
+    bootloader_info = uart_info_dump(device, True)
     # perform the check now that we have all the relevant data
     utils.firmware_comparison_dump(bootloader_info["rpi_version"], bootloader_info["rpi_date"], bootloader_info["rpi_chip_id"])
     # run uart info dump until OS is booted
-    bootloader_info = uart_info_dump(sys.argv[1], False)
+    bootloader_info = uart_info_dump(device, False)
 
     '''
     TODO: Run the following code using rshell to effectively inject this code
