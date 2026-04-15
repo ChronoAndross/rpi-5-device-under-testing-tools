@@ -5,6 +5,7 @@ import time
 import sys
 import re
 import requests
+from rpi_types import RpiBootloaderInfo
 
 import rpi_uart_utils as utils
 
@@ -18,7 +19,7 @@ This dumps UART info and grabs the following values:
 - firmware versions/dates
 - other important info
 '''
-def uart_info_dump(device: str):
+def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> RpiBootloaderInfo | None:
     port = serial.Serial(device, 115200, timeout=1)
     rpi_version = None
     rpi_date = None
@@ -29,41 +30,32 @@ def uart_info_dump(device: str):
         data = port.readline().decode('utf-8').strip()
         if data:
             print(f"Received: {data}")
-            if version_pattern.search(data):
-                rpi_version = version_pattern.search(data).group().split(":")[1]
-            if date_pattern.search(data):
-                rpi_date = date_pattern.search(data).group().split(":")[1]
-            if chip_pattern.search(data):
-                rpi_chip_id = chip_pattern.search(data).group().split(":")[1].strip()
-            if "SDRAM" in data:
-                sdram_data = data
-            if "DDR" in data:
-                ddr_data = data
+            if obtain_firmware_info:
+                if version_pattern.search(data):
+                    rpi_version = version_pattern.search(data).group().split(":")[1]
+                if date_pattern.search(data):
+                    rpi_date = date_pattern.search(data).group().split(":")[1]
+                if chip_pattern.search(data):
+                    rpi_chip_id = chip_pattern.search(data).group().split(":")[1].strip()
+                if "SDRAM" in data:
+                    sdram_data = data
+                if "DDR" in data:
+                    ddr_data = data
 
             if rpi_version and rpi_date and rpi_chip_id and sdram_data and ddr_data:
-                print("All relevant data received:")
-                print(f"Version: {rpi_version}")
-                print(f"Date: {rpi_date}")
-                print(f"Chip ID: {rpi_chip_id}")
-                print(f"SDRAM Data: {sdram_data}")
-                print(f"DDR Data: {ddr_data}")
-                break
+                return RpiBootloaderInfo({
+                    "rpi_version": rpi_version,
+                    "rpi_date": rpi_date,
+                    "rpi_chip_id": rpi_chip_id,
+                    "sdram_data": sdram_data,
+                    "ddr_data": ddr_data
+                })
+            # TODO: Add case for reaching end of bootloader messages or read when OS is booted
         else:
             print("No data received, waiting 3 seconds...")
             time.sleep(3)
 
-    
-    # perform the check now that we have all the relevant data
-    utils.firmware_comparison_dump(rpi_version, rpi_date, rpi_chip_id)
-
-    # start another loop to keep printing any additional data that comes in over UART (e.g. logs, errors, etc.)
-    while True:
-        data = port.readline().decode('utf-8').strip()
-        if data:
-            print(f"Received: {data}")
-        else:
-            print("No data received, waiting 3 seconds...")
-            time.sleep(3)
+    return None
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

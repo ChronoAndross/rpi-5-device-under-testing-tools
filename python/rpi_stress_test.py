@@ -11,10 +11,7 @@ import subprocess
 import threading
 import time
 
-class PowerConsumptionResults(dict):
-    type: str
-    value: float
-    time: float
+from rpi_types import RpiPowerConsumptionResults
 
 # this should run a simple interrupt for some indeterminate amount of time until cut off by main thread
 # Use a thread-safe event to signal the interrupt thread to exit
@@ -37,7 +34,7 @@ def install_and_import_python_package(package):
         pip.install(package)
         __import__(package)
 
-def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, list[PowerConsumptionResults]]):
+def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, list[RpiPowerConsumptionResults]]):
     install_and_import_python_package("matplotlib")
     import matplotlib.pyplot as plt
     now = time.strftime("%Y-%m-%d_%H-%M-%S")
@@ -75,7 +72,6 @@ def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, 
     bx.plot(times, list(time_power_averaged.values()), label="Average Power")
     bx.savefig(f"{test_name}_average_power_consumption_{now}.png")
 
-
     times = list(set([result["time"] for results in mapped_results.values() for result in results]))
 
         
@@ -95,7 +91,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
         lines = results.stdout.split("\n")
         curr_time = time.time()
         # gather these results so we can plot voltage, current, and power together
-        mapped_results : dict[str, list[PowerConsumptionResults]] = {}
+        mapped_results : dict[str, list[RpiPowerConsumptionResults]] = {}
         for line in lines:
             elements = line.split("=")
             key = elements[0].split()[0]

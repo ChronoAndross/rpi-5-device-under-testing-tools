@@ -24,7 +24,7 @@ def check_io() -> bool:
             print(f"Error occurred while setting up GPIO pin {pin}: {e}")
             return False
     print("GPIO pins set up successfully.")
-    return
+    return True
 
 if __name__ == "__main__":
     check_hardware_info()
