@@ -132,8 +132,10 @@ def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
     print(f"Stress test completed. Output:\n{results.stdout}")
 
 def run_all_tests():
+    print("Running all stress tests...")
     install_and_import_python_package("numpy")
     power_consumption_stress_test()
+    # TODO: uncomment this
     #temperature_stress_test()
     
 if __name__ == "__main__":

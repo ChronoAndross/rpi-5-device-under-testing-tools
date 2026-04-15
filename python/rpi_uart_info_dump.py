@@ -43,6 +43,7 @@ def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> RpiBootlo
                     ddr_data = data
 
             if rpi_version and rpi_date and rpi_chip_id and sdram_data and ddr_data:
+                print("Successfully obtained bootloader information from UART")
                 return RpiBootloaderInfo({
                     "rpi_version": rpi_version,
                     "rpi_date": rpi_date,

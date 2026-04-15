@@ -28,4 +28,6 @@ def check_io() -> bool:
 
 if __name__ == "__main__":
     check_hardware_info()
-    check_io()
+    io_working = check_io()
+    if not io_working:
+        raise RuntimeError("I/O check failed, terminating tests.")

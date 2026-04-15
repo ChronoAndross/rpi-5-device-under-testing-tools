@@ -3,12 +3,28 @@
 # and the stress test, and gather all the relevant information 
 # from each of those tests to create a comprehensive report.
 import sys
+import subprocess
 import rshell
 
 from rpi_internals_check import check_hardware_info, check_io
 from rpi_uart_info_dump import uart_info_dump
 import rpi_stress_test
 import rpi_uart_utils as utils
+
+def _run_rshell_command(port, command):
+    # -p defines the port, -c defines the command to run then exit
+    full_cmd = ["rshell", "-p", port, "-c", command]
+    
+    try:
+        result = subprocess.run(
+            full_cmd, 
+            capture_output=True, 
+            text=True, 
+            check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        return f"Error: {e.stderr}"
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -24,13 +40,11 @@ if __name__ == "__main__":
     bootloader_info = uart_info_dump(device, False)
 
     '''
-    TODO: Run the following code using rshell to effectively inject this code
-    into the RPi5 and run it there, since these tests are designed to run on the RPi5 itself
-
-    # check hardware info and IO behavior
-    cpu_info, mem_info = check_hardware_info()
-    io_check_passed = check_io()
-    if not io_check_passed:
-        raise RuntimeError("IO check failed, terminating tests.")
-    rpi_stress_test.run_all_tests()
+    Run the following code using rshell to effectively inject this code
+    into the RPi5 and run it there. These tests are designed to run on 
+    the RPi5 itself.
     '''
+    _run_rshell_command(device, "cp rpi_internals_check.py /pyboard/home/pi/")
+    _run_rshell_command(device, "python3 /pyboard/home/pi/rpi_internals_check.py")
+    _run_rshell_command(device, "cp rpi_stress_test.py /pyboard/home/pi/")
+    _run_rshell_command(device, "python3 /pyboard/home/pi/rpi_stress_test.py")

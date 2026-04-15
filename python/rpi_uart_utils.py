@@ -22,6 +22,7 @@ def firmware_comparison_dump(version: str, date: str, chip_id: str):
     _download_binary_from_link("https://github.com/raspberrypi/rpi-eeprom/blob/85c834683d380c3ce2254c6cb0c79ee6ee737b78/firmware-2712/default/recovery.bin", "recovery.bin")
 
     # get versions, dates, and chip ids from the downloaded firmware binaries and compare to the values received from the RPi5
+    print("Comparing received firmware information to known firmware versions...")
     fw_versions = []
     fw_dates = []
     fw_chip_ids = []
@@ -37,3 +38,4 @@ def firmware_comparison_dump(version: str, date: str, chip_id: str):
         raise ValueError(f"Received date {date} does not match any known firmware dates, dates: {fw_dates}")
     if not chip_id in fw_chip_ids:
         raise ValueError(f"Received chip ID {chip_id} does not match any known firmware chip IDs, chip IDs: {fw_chip_ids}")
+    print("Firmware information matches known versions, dates, and chip IDs.")
