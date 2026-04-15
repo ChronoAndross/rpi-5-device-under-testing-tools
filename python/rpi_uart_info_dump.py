@@ -3,15 +3,60 @@
 import serial
 import time
 import sys
+import re
+import requests
+
+import rpi_uart_utils as utils
+
+version_pattern = re.compile(r"VERSION:\d+")
+date_pattern = re.compile(r"DATE:\s\d{4}-\d{2}-\d{2}")
+chip_pattern = re.compile(r"chip ID:\s\w+")
 
 '''
-TODO: grab the following and compare to known values:
-- device IDs
-- firmware versions
+This dumps UART info and grabs the following values:
+- chip IDs
+- firmware versions/dates
 - other important info
 '''
 def uart_info_dump(device: str):
     port = serial.Serial(device, 115200, timeout=1)
+    rpi_version = None
+    rpi_date = None
+    rpi_chip_id = None
+    sdram_data = None
+    ddr_data = None
+    while True:
+        data = port.readline().decode('utf-8').strip()
+        if data:
+            print(f"Received: {data}")
+            if version_pattern.search(data):
+                rpi_version = version_pattern.search(data).group().split(":")[1]
+            if date_pattern.search(data):
+                rpi_date = date_pattern.search(data).group().split(":")[1]
+            if chip_pattern.search(data):
+                rpi_chip_id = chip_pattern.search(data).group().split(":")[1].strip()
+            if "SDRAM" in data:
+                sdram_data = data
+            if "DDR" in data:
+                ddr_data = data
+
+            if rpi_version and rpi_date and rpi_chip_id and sdram_data and ddr_data:
+                print("All relevant data received:")
+                print(f"Version: {rpi_version}")
+                print(f"Date: {rpi_date}")
+                print(f"Chip ID: {rpi_chip_id}")
+                print(f"SDRAM Data: {sdram_data}")
+                print(f"DDR Data: {ddr_data}")
+                break
+        else:
+            print("No data received, waiting 3 seconds...")
+            time.sleep(3)
+
+    
+    # perform the check now that we have all the relevant data
+    utils.firmware_comparison_dump(rpi_version, rpi_date, rpi_chip_id)
+
+    # start another loop to keep printing any additional data that comes in over UART (e.g. logs, errors, etc.)
     while True:
         data = port.readline().decode('utf-8').strip()
         if data:

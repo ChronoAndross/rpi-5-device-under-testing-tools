@@ -2,7 +2,7 @@
 import subprocess
 import GPIO
 
-def check_hardware_info():
+def check_hardware_info() -> tuple[str, str]:
     print("Checking hardware information...")
     cpu_info = subprocess.run(["cat", "/proc/cpuinfo"], capture_output=True, text=True)
     mem_info = subprocess.run(["cat", "/proc/meminfo"], capture_output=True, text=True)
@@ -11,8 +11,9 @@ def check_hardware_info():
     print(cpu_info.stdout)
     print("Memory Information:")
     print(mem_info.stdout)
+    return cpu_info.stdout, mem_info.stdout
 
-def check_io():
+def check_io() -> bool:
     print("Checking I/O behavior...")
     GPIO.setmode(GPIO.BCM)
     gpio_pins = range(2, 28)  # GPIO pins 2-27 are typically available on RPi5
@@ -21,7 +22,9 @@ def check_io():
             GPIO.setup(pin, GPIO.IN)
         except RuntimeError as e:
             print(f"Error occurred while setting up GPIO pin {pin}: {e}")
-            continue
+            return False
+    print("GPIO pins set up successfully.")
+    return
 
 if __name__ == "__main__":
     check_hardware_info()

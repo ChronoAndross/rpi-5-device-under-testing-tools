@@ -11,6 +11,11 @@ import subprocess
 import threading
 import time
 
+class PowerConsumptionResults(dict):
+    type: str
+    value: float
+    time: float
+
 # this should run a simple interrupt for some indeterminate amount of time until cut off by main thread
 # Use a thread-safe event to signal the interrupt thread to exit
 exit_event = threading.Event()
@@ -32,18 +37,56 @@ def install_and_import_python_package(package):
         pip.install(package)
         __import__(package)
 
+def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, list[PowerConsumptionResults]]):
+    install_and_import_python_package("matplotlib")
+    import matplotlib.pyplot as plt
+    now = time.strftime("%Y-%m-%d_%H-%M-%S")
+    # Read the power consumption results from the file and parse them
+    for key, results in mapped_results.items():
+        _, ax = plt.subplots()
+        times = list(set([result["time"] for result in results]))
+        voltage_values = [result["value"] for result in results if result["type"] == "voltage"]
+        current_values = [result["value"] for result in results if result["type"] == "current"]
+        power_values = [voltage * current for voltage, current in zip(voltage_values, current_values)]
+        ax.plot(times, current_values, label=f"{key} Current")
+        ax.plot(times, voltage_values, label=f"{key} Voltage")
+        ax.plot(times, power_values, label=f"{key} Power")
+        ax.savefig(f"{test_name}_{key}_power_consumption_{now}.png")
+    
+    # Create a mean for voltage, current, and power for all times in this run
+    num_groups = len(mapped_results.values())
+    time_voltage_summed = {}
+    time_current_summed = {}
+    for results in mapped_results.values():
+        for result in results:
+            if result["type"] == "voltage":
+                time_voltage_summed[result["time"]] = time_voltage_summed.get(result["time"], 0) + result["value"]
+            elif result["type"] == "current":
+                time_current_summed[result["time"]] = time_current_summed.get(result["time"], 0) + result["value"]
+
+    time_power_summed = {time: time_voltage_summed.get(time, 0) * time_current_summed.get(time, 0) for time in times}
+
+    time_voltage_averaged = {time: voltage / num_groups for time, voltage in time_voltage_summed.items()}
+    time_current_averaged = {time: current / num_groups for time, current in time_current_summed.items()}
+    time_power_averaged = {time: power / num_groups for time, power in time_power_summed.items()}
+    _, bx = plt.subplots()
+    bx.plot(times, list(time_current_averaged.values()), label="Average Current")
+    bx.plot(times, list(time_voltage_averaged.values()), label="Average Voltage")   
+    bx.plot(times, list(time_power_averaged.values()), label="Average Power")
+    bx.savefig(f"{test_name}_average_power_consumption_{now}.png")
+
+
+    times = list(set([result["time"] for results in mapped_results.values() for result in results]))
+
+        
+
 def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stress_Test"):
-    class PowerConsumptionResults(dict):
-        type: str
-        value: float
-        time: float
     print("Starting power consumption stress test...")
     # Start the interrupt in a separate thread
     consuming_function = threading.Thread(target=sample_interrupt, daemon=True)
     consuming_function.start()
     # Run the stress test for a certain duration (e.g., 15 minutes)
     time_start = time.time()
-    pwr_consumption_results = open(f"{test_name}_power_consumption_results.txt", "w")
     while time.time() - time_start < 900:  # Run for 900 seconds (15 minutes)
         # Here you would add code to measure voltage, current, and power consumption
         # For example, you could read from a sensor or use a library that interfaces with the hardware
@@ -77,22 +120,22 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
                 })
             else:
                 raise ValueError(f"Unexpected key format: {key}")
-        pwr_consumption_results.write(f"{curr_time}: {mapped_results}\n")
+        print("Sleeping for 10 seconds before the next measurement...")
         time.sleep(10)  # Sleep for 10 seconds before the next measurement
-    pwr_consumption_results.close()
     
     # signal the interrupt thread to stop and wait briefly for it to exit
     exit_event.set()
     consuming_function.join(timeout=2)
     print("Power consumption stress test completed.")
+    _graph_power_consumption_results(test_name, mapped_results)
 
 def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
-    install_and_import_python_package("numpy")
     install_and_import_python_package("stressberry")
     print("Starting temperature stress test...")
     results = subprocess.run(["stressberry-run", "-n", test_name, "--duration", "900", "-c", "4", "--output", "out.dat"], capture_output=True, text=True)
     print(f"Stress test completed. Output:\n{results.stdout}")
     
 if __name__ == "__main__":
+    install_and_import_python_package("numpy")
     power_consumption_stress_test()
     #temperature_stress_test()
