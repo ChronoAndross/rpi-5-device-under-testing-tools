@@ -6,9 +6,7 @@ import sys
 import subprocess
 import rshell
 
-from rpi_internals_check import check_hardware_info, check_io
 from rpi_uart_info_dump import uart_info_dump
-import rpi_stress_test
 import rpi_uart_utils as utils
 
 def _run_rshell_command(port, command):

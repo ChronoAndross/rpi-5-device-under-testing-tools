@@ -5,12 +5,13 @@ import time
 import sys
 import re
 import requests
+from typing import Optional
 from rpi_types import RpiBootloaderInfo
 
 import rpi_uart_utils as utils
 
 version_pattern = re.compile(r"VERSION:\d+")
-date_pattern = re.compile(r"DATE:\s\d{4}-\d{2}-\d{2}")
+date_pattern = re.compile(r"DATE:\s\d{4}/\d{2}/\d{2}")
 chip_pattern = re.compile(r"chip ID:\s\w+")
 
 '''
@@ -19,7 +20,7 @@ This dumps UART info and grabs the following values:
 - firmware versions/dates
 - other important info
 '''
-def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> RpiBootloaderInfo | None:
+def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> Optional[RpiBootloaderInfo]:
     port = serial.Serial(device, 115200, timeout=1)
     rpi_version = None
     rpi_date = None
@@ -33,14 +34,19 @@ def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> RpiBootlo
             if obtain_firmware_info:
                 if version_pattern.search(data):
                     rpi_version = version_pattern.search(data).group().split(":")[1]
+                    print(f"rpi_version: {rpi_version}")
                 if date_pattern.search(data):
                     rpi_date = date_pattern.search(data).group().split(":")[1]
+                    print(f"rpi_date: {rpi_date}")
                 if chip_pattern.search(data):
                     rpi_chip_id = chip_pattern.search(data).group().split(":")[1].strip()
+                    print(f"rpi_chip_id: {rpi_chip_id}")
                 if "SDRAM" in data:
                     sdram_data = data
+                    print(f"SRAM: {sdram_data}")
                 if "DDR" in data:
                     ddr_data = data
+                    print(f"ddr_data: {ddr_data}")
 
             if rpi_version and rpi_date and rpi_chip_id and sdram_data and ddr_data:
                 print("Successfully obtained bootloader information from UART")

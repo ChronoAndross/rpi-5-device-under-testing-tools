@@ -1,9 +1,11 @@
+from typing import Optional
+
 class RpiBootloaderInfo(dict):
-    rpi_version: str | None
-    rpi_date: str | None
-    rpi_chip_id: str | None
-    sdram_data: str | None
-    ddr_data: str | None
+    rpi_version: Optional[str]
+    rpi_date: Optional[str]
+    rpi_chip_id: Optional[str]
+    sdram_data: Optional[str]
+    ddr_data: Optional[str]
 
 class RpiPowerConsumptionResults(dict):
     type: str
