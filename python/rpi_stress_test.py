@@ -17,16 +17,21 @@ from rpi_types import RpiPowerConsumptionResults
 # Use a thread-safe event to signal the interrupt thread to exit
 exit_event = threading.Event()
 def sample_interrupt():
-    import GPIO
+    import RPi.GPIO as GPIO
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(17, GPIO.OUT)  # Use GPIO pin 17 for controlling interrupt
     # Loop until main thread signals to stop via `exit_event`
     while not exit_event.is_set():
         if GPIO.output(17, GPIO.HIGH):  # Trigger interrupt
             print("Interrupt triggered!")
+        print("wait one second...")
         time.sleep(1)  # Wait for 1 second
 
-def install_and_import_python_package(package):
+def install_and_import_python_package_apt(package: str):
+    command = f"sudo apt install {package} -y"
+    subprocess.run(command, bufsize=1, shell=True)
+        
+def install_and_import_python_package(package: str):
     try:
         __import__(package)
     except ImportError:
@@ -35,7 +40,7 @@ def install_and_import_python_package(package):
         __import__(package)
 
 def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, list[RpiPowerConsumptionResults]]):
-    install_and_import_python_package("matplotlib")
+    install_and_import_python_package_apt("python3-matplotlib")
     import matplotlib.pyplot as plt
     now = time.strftime("%Y-%m-%d_%H-%M-%S")
     # Read the power consumption results from the file and parse them
@@ -83,7 +88,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     consuming_function.start()
     # Run the stress test for a certain duration (e.g., 15 minutes)
     time_start = time.time()
-    while time.time() - time_start < 900:  # Run for 900 seconds (15 minutes)
+    while time.time() - time_start < 10:  # Run for 900 seconds (15 minutes)
         # Here you would add code to measure voltage, current, and power consumption
         # For example, you could read from a sensor or use a library that interfaces with the hardware
         results = subprocess.run(["vcgencmd", "pmic_read_adc", "temp"], capture_output=True, text=True)  # Example command to measure temperature
@@ -93,6 +98,8 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
         # gather these results so we can plot voltage, current, and power together
         mapped_results : dict[str, list[RpiPowerConsumptionResults]] = {}
         for line in lines:
+            if not line:
+                continue
             elements = line.split("=")
             key = elements[0].split()[0]
             value = float(elements[1].replace("V", "").replace("A", "").strip())
@@ -112,7 +119,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
                 mapped_results[key].append({
                     "type": "voltage",
                     "value": value,
-                    "time": curr_time
+                    "time": curr_time - time_start
                 })
             else:
                 raise ValueError(f"Unexpected key format: {key}")
@@ -126,6 +133,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     _graph_power_consumption_results(test_name, mapped_results)
 
 def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
+    install_and_import_python_package_apt("stress")
     install_and_import_python_package("stressberry")
     print("Starting temperature stress test...")
     results = subprocess.run(["stressberry-run", "-n", test_name, "--duration", "900", "-c", "4", "--output", "out.dat"], capture_output=True, text=True)

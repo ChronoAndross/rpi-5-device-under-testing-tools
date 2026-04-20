@@ -1,6 +1,6 @@
 # check for CPU, RAM, and other hardware information on the RPi5
 import subprocess
-import GPIO
+import RPi.GPIO as GPIO
 
 def check_hardware_info() -> tuple[str, str]:
     print("Checking hardware information...")
