@@ -30,15 +30,28 @@ def sample_interrupt():
 
 def install_and_import_python_package_apt(package: str):
     command = f"sudo apt install {package} -y"
-    subprocess.run(command, bufsize=1, shell=True)
+    subprocess.run(command, bufsize=1, shell=True, capture_output=True, text=True)
         
-def install_and_import_python_package(package: str):
-    try:
-        __import__(package)
-    except ImportError:
-        print(f"{package} not found, installing...")
-        pip.install(package)
-        __import__(package)
+def install_and_import_python_package_pip(package: str, is_app: bool):
+    if is_app:
+        command = f"pipx install {package}"
+        subprocess.run(command, bufsize=1, shell=True)
+    else:
+        try:
+            __import__(package)
+        except ImportError:
+            print(f"{package} not found, installing...")
+            command = f"pipx install {package}"
+            subprocess.run(command, bufsize=1, shell=True)
+            __import__(package)
+            
+def ensure_path_pip():
+    command = "pipx ensurepath"
+    subprocess.run(command, bufsize=1, shell=True)
+
+def start_stressberry(test_name: str, test_duration_sec: str, output_file: str):
+    command = f"/root/.local/bin/stressberry-run -n {test_name} --duration {test_duration_sec} -c 4 {output_file}"
+    results = subprocess.run(command, bufsize=1, shell=True)
 
 def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, list[RpiPowerConsumptionResults]]):
     print("printing power consumption results")
@@ -96,7 +109,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     time_start = time.time()
     # gather these results so we can plot voltage, current, and power together
     mapped_results : dict[str, list[RpiPowerConsumptionResults]] = {}
-    while time.time() - time_start < 60:  # Run for 900 seconds (15 minutes)
+    while time.time() - time_start < 900:  # Run for 900 seconds (15 minutes)
         # Here you would add code to measure voltage, current, and power consumption
         # For example, you could read from a sensor or use a library that interfaces with the hardware
         results = subprocess.run(["vcgencmd", "pmic_read_adc", "temp"], capture_output=True, text=True)  # Example command to measure temperature
@@ -136,22 +149,23 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     exit_event.set()
     consuming_function.join(timeout=2)
     print("Power consumption stress test completed.")
-    print(mapped_results)
     _graph_power_consumption_results(test_name, mapped_results)
 
 def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
     install_and_import_python_package_apt("stress")
-    install_and_import_python_package("stressberry")
+    install_and_import_python_package_pip("stressberry", True)
+    ensure_path_pip()
     print("Starting temperature stress test...")
-    results = subprocess.run(["stressberry-run", "-n", test_name, "--duration", "900", "-c", "4", "--output", "out.dat"], capture_output=True, text=True)
-    print(f"Stress test completed. Output:\n{results.stdout}")
+    now = time.strftime("%Y-%m-%d_%H-%M-%S")
+    start_stressberry(test_name, "60", f"{test_name}_{now}.dat")
+    print(f"Stress test completed.")
 
 def run_all_tests():
     print("Running all stress tests...")
-    install_and_import_python_package("numpy")
+    install_and_import_python_package_apt("pipx")
+    install_and_import_python_package_pip("numpy", False)
     power_consumption_stress_test()
-    # TODO: uncomment this
-    #temperature_stress_test()
+    temperature_stress_test()
     
 if __name__ == "__main__":
     run_all_tests()
