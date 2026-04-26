@@ -26,6 +26,7 @@ def sample_interrupt():
             print("Interrupt triggered!")
         print("wait one second...")
         time.sleep(1)  # Wait for 1 second
+    print("exiting sample_interrupt")
 
 def install_and_import_python_package_apt(package: str):
     command = f"sudo apt install {package} -y"
@@ -40,20 +41,26 @@ def install_and_import_python_package(package: str):
         __import__(package)
 
 def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, list[RpiPowerConsumptionResults]]):
+    print("printing power consumption results")
     install_and_import_python_package_apt("python3-matplotlib")
     import matplotlib.pyplot as plt
     now = time.strftime("%Y-%m-%d_%H-%M-%S")
     # Read the power consumption results from the file and parse them
     for key, results in mapped_results.items():
         _, ax = plt.subplots()
-        times = list(set([result["time"] for result in results]))
-        voltage_values = [result["value"] for result in results if result["type"] == "voltage"]
-        current_values = [result["value"] for result in results if result["type"] == "current"]
+        sorted_results = sorted(results, key=lambda x: x["time"])
+        times = list(dict.fromkeys([result["time"] for result in sorted_results]))
+        voltage_values = [result["value"] for result in sorted_results if result["type"] == "voltage"]
+        current_values = [result["value"] for result in sorted_results if result["type"] == "current"]
         power_values = [voltage * current for voltage, current in zip(voltage_values, current_values)]
+        if not current_values or not voltage_values or not power_values:
+            print(f"{key} does not have appropriate info to create graph, exiting.")
+            continue
         ax.plot(times, current_values, label=f"{key} Current")
         ax.plot(times, voltage_values, label=f"{key} Voltage")
         ax.plot(times, power_values, label=f"{key} Power")
-        ax.savefig(f"{test_name}_{key}_power_consumption_{now}.png")
+        ax.legend()
+        ax.figure.savefig(f"{test_name}_{key}_power_consumption_{now}.png")
     
     # Create a mean for voltage, current, and power for all times in this run
     num_groups = len(mapped_results.values())
@@ -67,18 +74,17 @@ def _graph_power_consumption_results(test_name: str, mapped_results : dict[str, 
                 time_current_summed[result["time"]] = time_current_summed.get(result["time"], 0) + result["value"]
 
     time_power_summed = {time: time_voltage_summed.get(time, 0) * time_current_summed.get(time, 0) for time in times}
-
     time_voltage_averaged = {time: voltage / num_groups for time, voltage in time_voltage_summed.items()}
     time_current_averaged = {time: current / num_groups for time, current in time_current_summed.items()}
     time_power_averaged = {time: power / num_groups for time, power in time_power_summed.items()}
     _, bx = plt.subplots()
-    bx.plot(times, list(time_current_averaged.values()), label="Average Current")
-    bx.plot(times, list(time_voltage_averaged.values()), label="Average Voltage")   
-    bx.plot(times, list(time_power_averaged.values()), label="Average Power")
-    bx.savefig(f"{test_name}_average_power_consumption_{now}.png")
-
     times = list(set([result["time"] for results in mapped_results.values() for result in results]))
-
+    bx.plot(time_current_averaged.keys(), time_current_averaged.values(), label="Average Current")
+    bx.plot(time_voltage_averaged.keys(), time_voltage_averaged.values(), label="Average Voltage")   
+    bx.plot(time_power_averaged.keys(), time_power_averaged.values(), label="Average Power")
+    bx.legend()
+    bx.figure.savefig(f"{test_name}_average_power_consumption_{now}.png")
+    print("finishing printing power consumption results")
         
 
 def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stress_Test"):
@@ -88,15 +94,15 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     consuming_function.start()
     # Run the stress test for a certain duration (e.g., 15 minutes)
     time_start = time.time()
-    while time.time() - time_start < 10:  # Run for 900 seconds (15 minutes)
+    # gather these results so we can plot voltage, current, and power together
+    mapped_results : dict[str, list[RpiPowerConsumptionResults]] = {}
+    while time.time() - time_start < 60:  # Run for 900 seconds (15 minutes)
         # Here you would add code to measure voltage, current, and power consumption
         # For example, you could read from a sensor or use a library that interfaces with the hardware
         results = subprocess.run(["vcgencmd", "pmic_read_adc", "temp"], capture_output=True, text=True)  # Example command to measure temperature
         print(f"Power consumption measurement: {results.stdout}")
         lines = results.stdout.split("\n")
         curr_time = time.time()
-        # gather these results so we can plot voltage, current, and power together
-        mapped_results : dict[str, list[RpiPowerConsumptionResults]] = {}
         for line in lines:
             if not line:
                 continue
@@ -110,7 +116,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
                 mapped_results[key].append({
                     "type": "current",
                     "value": value,
-                    "time": curr_time
+                    "time": curr_time - time_start
                 })
             elif key.endswith("_V"):
                 key = key[:-2]  # Remove the "_V" suffix
@@ -130,6 +136,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     exit_event.set()
     consuming_function.join(timeout=2)
     print("Power consumption stress test completed.")
+    print(mapped_results)
     _graph_power_consumption_results(test_name, mapped_results)
 
 def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
