@@ -4,11 +4,8 @@ import serial
 import time
 import sys
 import re
-import requests
 from typing import Optional
 from rpi_types import RpiBootloaderInfo
-
-import rpi_uart_utils as utils
 
 version_pattern = re.compile(r"VERSION:\d+")
 date_pattern = re.compile(r"DATE:\s\d{4}/\d{2}/\d{2}")
@@ -20,7 +17,7 @@ This dumps UART info and grabs the following values:
 - firmware versions/dates
 - other important info
 '''
-def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> Optional[RpiBootloaderInfo]:
+def uart_info_dump(device: str, obtain_firmware_info: bool = False, wait_for_login: bool = False) -> Optional[RpiBootloaderInfo]:
     port = serial.Serial(device, 115200, timeout=1)
     rpi_version = None
     rpi_date = None
@@ -57,7 +54,10 @@ def uart_info_dump(device: str, obtain_firmware_info: bool = False) -> Optional[
                     "sdram_data": sdram_data,
                     "ddr_data": ddr_data
                 })
-            # TODO: Add case for reaching end of bootloader messages or read when OS is booted
+            if wait_for_login:
+                if "login:" in data:
+                    print("Successfully reached login prompt")
+                    return None
         else:
             print("No data received, waiting 3 seconds...")
             time.sleep(3)
