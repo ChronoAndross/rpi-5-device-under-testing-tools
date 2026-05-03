@@ -110,7 +110,7 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     time_start = time.time()
     # gather these results so we can plot voltage, current, and power together
     mapped_results : dict[str, list[RpiPowerConsumptionResults]] = {}
-    while time.time() - time_start < 900:  # Run for 900 seconds (15 minutes)
+    while time.time() - time_start < 300:  # Run for 300 seconds (5 minutes)
         # Here you would add code to measure voltage, current, and power consumption
         # For example, you could read from a sensor or use a library that interfaces with the hardware
         results = subprocess.run(["vcgencmd", "pmic_read_adc", "temp"], capture_output=True, text=True)  # Example command to measure temperature
@@ -202,7 +202,8 @@ def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
     print("Starting temperature stress test...")
     now = time.strftime("%Y-%m-%d_%H-%M-%S")
     test_output_file_name = f"{test_name}_{now}.dat"
-    start_stressberry(test_name, "60", test_output_file_name)
+    # Run stressberry for 5 minutes
+    start_stressberry(test_name, "300", test_output_file_name)
     _temperature_stress_test_output_graph(test_output_file_name)
     print("Stress test completed.")
 
