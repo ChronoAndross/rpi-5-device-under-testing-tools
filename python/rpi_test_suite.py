@@ -26,7 +26,7 @@ def _run_rshell_command(port, command):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 rpi_uart_info_dump.py <device> (e.g. /dev/ttyUSB0)")
+        print("Usage: python3 rpi_test_suite.py <device> (e.g. /dev/ttyUSB0)")
         sys.exit(1)
 
     # dump UART and obtain firmware info
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # perform the check now that we have all the relevant data
     utils.firmware_comparison_dump(bootloader_info["rpi_version"], bootloader_info["rpi_date"], bootloader_info["rpi_chip_id"])
     # run uart info dump until OS is booted
-    bootloader_info = uart_info_dump(device, False)
+    bootloader_info = uart_info_dump(device, False, True)
 
     '''
     Run the following code using rshell to effectively inject this code
