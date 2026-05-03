@@ -10,6 +10,7 @@ import pip
 import subprocess
 import threading
 import time
+import re
 
 from rpi_types import RpiPowerConsumptionResults
 
@@ -150,6 +151,49 @@ def power_consumption_stress_test(test_name: str = "RPi5_Power_Consumption_Stres
     consuming_function.join(timeout=2)
     print("Power consumption stress test completed.")
     _graph_power_consumption_results(test_name, mapped_results)
+    
+def _temperature_stress_test_output_graph(file_name: str):
+    cpu_freqs = []
+    temps = []
+    times = []
+    f = open(file_name, "r")
+    lines = f.readlines()
+    read_freqs = False
+    read_temps = False
+    read_times = False
+    for line in lines:
+        if "cpu frequency:" in line:
+            read_freqs = True
+            read_temps = False
+            read_times = False
+        elif "temperature:" in line:
+            read_freqs = False
+            read_temps = True
+            read_times = False
+        elif "time:" in line:
+            read_freqs = False
+            read_temps = False
+            read_times = True
+        elif "- " in line:
+            # read for the specified bool
+            if read_freqs:
+                cpu_freqs.append(float(line.replace("- ", "").strip()))
+            elif read_temps:
+                temps.append(float(line.replace("- ", "").strip()))
+            elif read_times:
+                times.append(float(line.replace("- ", "").strip()))
+    
+    # plot all accumulated values
+    install_and_import_python_package_apt("python3-matplotlib")
+    import matplotlib.pyplot as plt
+    _, ax = plt.subplots()
+    ax.plot(times, temps, label="Temperature (C)")
+    ax.plot(times, cpu_freqs, label="CPU Frenquency (MHz)")
+    ax.legend()
+    file_name_amended = file_name.replace(".dat", "")
+    ax.figure.savefig(f"{file_name_amended}.png")
+    
+        
 
 def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
     install_and_import_python_package_apt("stress")
@@ -157,8 +201,10 @@ def temperature_stress_test(test_name: str = "RPi5_Temperature_Stress_Test"):
     ensure_path_pip()
     print("Starting temperature stress test...")
     now = time.strftime("%Y-%m-%d_%H-%M-%S")
-    start_stressberry(test_name, "60", f"{test_name}_{now}.dat")
-    print(f"Stress test completed.")
+    test_output_file_name = f"{test_name}_{now}.dat"
+    start_stressberry(test_name, "60", test_output_file_name)
+    _temperature_stress_test_output_graph(test_output_file_name)
+    print("Stress test completed.")
 
 def run_all_tests():
     print("Running all stress tests...")
